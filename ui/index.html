@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Remote Desk</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="2.5" y="4" width="19" height="12.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/>
+        <path d="M8 20h8M12 16.5V20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M9.5 10.25h5m-2-2 2 2-2 2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div>
+        <h1>Remote Desk</h1>
+        <p class="subtitle" id="host">&nbsp;</p>
+      </div>
+    </div>
+    <span class="pill" id="status-pill">Connecting…</span>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="overview" aria-selected="true">Overview</button>
+    <button role="tab" data-tab="display">Display</button>
+    <button role="tab" data-tab="security">Security</button>
+    <button role="tab" data-tab="devices">Devices</button>
+    <button role="tab" data-tab="startup">Startup</button>
+  </nav>
+
+  <main>
+    <div id="pending"></div>
+    <div id="alerts"></div>
+
+    <section data-panel="overview">
+      <div class="card">
+        <h2>Connect from another device</h2>
+        <p class="muted">Open any VNC app (RealVNC Viewer, TigerVNC, Remmina, bVNC, Screens…) and enter one of these addresses.</p>
+        <ul class="addresses" id="addresses"></ul>
+        <details class="hint">
+          <summary>Connecting from outside your home</summary>
+          <p>Use the <b>Tailscale</b> address above from any device signed in to your tailnet, or tunnel over SSH:</p>
+          <code class="block" id="ssh-hint"></code>
+          <p>then connect your VNC app to <code>localhost:5900</code>.</p>
+        </details>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Active sessions</h2>
+          <span class="muted small" id="capture-status"></span>
+        </div>
+        <ul class="list" id="sessions"></ul>
+      </div>
+    </section>
+
+    <section data-panel="display" hidden>
+      <div class="card">
+        <h2>Screen to share</h2>
+        <p class="muted">Pick one monitor or share all of them as one wide desktop.</p>
+        <div class="monitors" id="monitors"></div>
+      </div>
+      <div class="card">
+        <h2>Resolution</h2>
+        <p class="muted">Lower resolutions use less bandwidth and feel faster on slow connections. Scaling is done by the compositor on the GPU.</p>
+        <div class="segmented" id="scale"></div>
+        <p class="small muted" id="scale-result"></p>
+      </div>
+      <div class="card">
+        <h2>Frame rate limit</h2>
+        <div class="segmented" id="fps"></div>
+      </div>
+    </section>
+
+    <section data-panel="security" hidden>
+      <div class="card">
+        <h2>VNC password</h2>
+        <p class="muted">Every VNC app asks for this. The VNC protocol only supports 6–8 characters, so it is a door lock, not a vault: keep <b>Ask before new devices connect</b> on and avoid exposing the port to the internet.</p>
+        <form class="inline" id="password-form" autocomplete="off">
+          <input type="password" id="password" minlength="6" maxlength="8" placeholder="New password" autocomplete="new-password" required>
+          <button type="button" class="ghost" id="password-toggle" aria-label="Show password">Show</button>
+          <button type="submit" class="primary">Save password</button>
+        </form>
+        <p class="small muted" id="password-state"></p>
+      </div>
+
+      <div class="card">
+        <h2>Access</h2>
+        <label class="row switch-row">
+          <span><b>Ask before new devices connect</b><small>A notification on this computer lets you allow once, always allow, or deny.</small></span>
+          <input type="checkbox" class="switch" data-setting="require_approval">
+        </label>
+        <label class="row switch-row">
+          <span><b>View only</b><small>Remote devices can watch but not use the mouse or keyboard.</small></span>
+          <input type="checkbox" class="switch" data-setting="view_only">
+        </label>
+        <div class="row">
+          <span><b>Seamless reconnect</b><small>A device that drops out can come back without a new prompt for this long.</small></span>
+          <select id="grace">
+            <option value="0">Off</option>
+            <option value="60">1 minute</option>
+            <option value="600">10 minutes</option>
+            <option value="3600">1 hour</option>
+            <option value="86400">1 day</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Allowed networks</h2>
+        <label class="row switch-row"><span><b>This computer</b><small>SSH tunnels arrive from localhost.</small></span><input type="checkbox" class="switch" data-net="localhost"></label>
+        <label class="row switch-row"><span><b>Local network</b><small>Devices on your home Wi-Fi or LAN.</small></span><input type="checkbox" class="switch" data-net="lan"></label>
+        <label class="row switch-row"><span><b>Tailscale</b><small>Devices in your tailnet, from anywhere.</small></span><input type="checkbox" class="switch" data-net="tailscale"></label>
+        <label class="row switch-row danger"><span><b>Internet</b><small>Any public address. Not recommended: VNC is not encrypted.</small></span><input type="checkbox" class="switch" data-net="internet"></label>
+        <form class="row" id="port-form">
+          <span><b>Port</b><small>VNC apps use 5900 unless told otherwise.</small></span>
+          <span class="inline"><input type="number" id="port" min="1024" max="65535" required><button class="ghost" type="submit">Apply</button></span>
+        </form>
+      </div>
+    </section>
+
+    <section data-panel="devices" hidden>
+      <div class="card">
+        <h2>Trusted devices</h2>
+        <p class="muted">These connect with just the password, no prompt. Devices are recognised by their Tailscale identity or network hardware address, so they stay trusted when their IP changes.</p>
+        <ul class="list" id="trusted"></ul>
+      </div>
+    </section>
+
+    <section data-panel="startup" hidden>
+      <div class="card">
+        <h2>Start automatically</h2>
+        <label class="row switch-row">
+          <span><b>Start when I log in</b><small>Runs as a background service that restarts itself if anything goes wrong.</small></span>
+          <input type="checkbox" class="switch" id="autostart">
+        </label>
+        <p class="small muted" id="service-state"></p>
+      </div>
+      <div class="card">
+        <h2>Available right after boot</h2>
+        <p class="muted">Screen sharing needs a running desktop session. To make this computer reachable straight after a reboot, turn on automatic login, and keep the lock screen on so a person at the desk still needs your password.</p>
+        <p class="muted">System Settings → Colors &amp; Themes → Login Screen (SDDM) → Behavior → <b>Automatically log in</b> as your user with the <b>Plasma (Wayland)</b> session. This needs administrator rights.</p>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
