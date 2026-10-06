@@ -6,7 +6,7 @@ rust-version = "1.88"
 authors = ["Kuntimaddi Manideep"]
 description = "A VNC server for KDE Plasma on Wayland, written from scratch in Rust"
 license = "MIT"
-repository = "https://github.com/yourusername/remote-desk"
+repository = "https://github.com/manideepk90/remote-desktop"
 keywords = ["vnc", "kde", "plasma", "wayland", "remote-desktop"]
 categories = ["network-programming", "command-line-utilities"]
 
