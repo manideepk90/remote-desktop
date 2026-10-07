@@ -157,6 +157,7 @@ form.inline input[type="password"] { flex: 1 1 180px; }
 #display-mode { margin: 4px 0 12px; }
 .virtual-custom { margin-top: 12px; gap: 8px; align-items: center; }
 .virtual-custom input { width: 96px; }
+.keep-row { margin-top: 16px; }
 
 details.hint { margin-top: 10px; }
 details.hint summary { cursor: pointer; color: var(--accent); font-weight: 600; }

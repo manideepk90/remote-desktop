@@ -26,14 +26,21 @@ impl Frame {
 pub struct FrameStore {
     cur: Mutex<Option<Arc<Frame>>>,
     cv: Condvar,
+    /// Keeps sequence numbers increasing across [`FrameStore::clear`].
+    last_seq: std::sync::atomic::AtomicU64,
 }
 
 impl FrameStore {
     pub fn publish(&self, width: u32, height: u32, data: Vec<u8>) {
         let mut cur = self.cur.lock().unwrap();
-        let seq = cur.as_ref().map_or(1, |f| f.seq + 1);
+        let seq = self.last_seq.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
         *cur = Some(Arc::new(Frame { width, height, data, seq }));
         self.cv.notify_all();
+    }
+
+    /// Drops the current image, so nobody is shown a screen that is no longer shared.
+    pub fn clear(&self) {
+        *self.cur.lock().unwrap() = None;
     }
 
     pub fn latest(&self) -> Option<Arc<Frame>> {

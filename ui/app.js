@@ -202,9 +202,22 @@ const VIRTUAL_SIZES = [[1280, 720], [1920, 1080], [2560, 1440], [2560, 1600], [3
 function renderDisplay() {
   if (!state) return;
   const d = state.config.display;
-  const virtual = d.mode === "virtual";
-  segmented($("display-mode"), [[0, "Existing monitors"], [1, "Virtual monitor"]], virtual ? 1 : 0,
-    (v) => saveDisplay({ mode: v ? "virtual" : "monitors" }));
+  const modes = ["monitors", "virtual", "session"];
+  const virtual = d.mode !== "monitors"; // virtual monitor or private session: both have a size and a lifetime
+  segmented($("display-mode"), [[0, "Existing monitors"], [1, "Virtual monitor"], [2, "Private session"]],
+    Math.max(0, modes.indexOf(d.mode)), (v) => saveDisplay({ mode: modes[v] }));
+  $("virtual-help").textContent = d.mode === "session"
+    ? "A separate desktop just for remote devices, with its own mouse, keyboard and windows. Nothing moves on this computer's screen. It starts when a device connects."
+    : "An extra monitor on this desktop that only remote devices see. Windows can be moved onto it, but it shares your mouse and keyboard. It is added when a device connects.";
+  $("keep-help").textContent = d.mode === "session"
+    ? "Apps left open keep running until the session stops."
+    : "Windows on it move to your other monitors when it is removed.";
+  const keep = $("keep");
+  if (document.activeElement !== keep) {
+    const v = d.keep_after_disconnect === "grace" ? String(d.keep_secs) : d.keep_after_disconnect;
+    if (![...keep.options].some((o) => o.value === v)) keep.append(h("option", { value: v }, `Keep for ${v} seconds`));
+    keep.value = v;
+  }
   $("mode-monitors").hidden = virtual;
   $("mode-virtual").hidden = !virtual;
   $("resolution-card").hidden = virtual; // the virtual monitor is streamed at its own size
@@ -315,6 +328,10 @@ function renderStartup() {
 }
 
 // ---------- controls ----------
+$("keep").addEventListener("change", (e) => {
+  const v = e.target.value;
+  saveDisplay(v === "stop" || v === "always" ? { keep_after_disconnect: v } : { keep_after_disconnect: "grace", keep_secs: Number(v) });
+});
 $("virtual-apply").addEventListener("click", () =>
   saveDisplay({ virtual_width: Number($("virtual-width").value), virtual_height: Number($("virtual-height").value) }));
 for (const el of document.querySelectorAll("[data-setting]")) {

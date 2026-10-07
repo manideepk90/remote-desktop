@@ -66,13 +66,24 @@
           <div class="monitors" id="monitors"></div>
         </div>
         <div id="mode-virtual" hidden>
-          <p class="muted">Creates an extra monitor that only remote devices see, like plugging in a second screen. Windows can be moved onto it, and it is removed again when you switch back.</p>
+          <p class="muted" id="virtual-help"></p>
           <div class="segmented" id="virtual-size"></div>
           <div class="inline virtual-custom">
             <input type="number" id="virtual-width" min="640" max="7680" step="2" aria-label="Width">
             <span>×</span>
             <input type="number" id="virtual-height" min="480" max="4320" step="2" aria-label="Height">
             <button class="ghost" id="virtual-apply">Apply size</button>
+          </div>
+          <div class="row keep-row">
+            <span><b>After the last device disconnects</b><small id="keep-help"></small></span>
+            <select id="keep">
+              <option value="stop">Stop right away</option>
+              <option value="60">Keep for 1 minute</option>
+              <option value="600">Keep for 10 minutes</option>
+              <option value="1800">Keep for 30 minutes</option>
+              <option value="3600">Keep for 1 hour</option>
+              <option value="always">Keep running</option>
+            </select>
           </div>
         </div>
       </div>

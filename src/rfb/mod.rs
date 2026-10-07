@@ -197,14 +197,15 @@ fn handle(app: &Arc<App>, mut s: TcpStream, peer: SocketAddr) -> Result<()> {
     }
     s.write_all(&0u32.to_be_bytes())?;
 
-    // Initialisation.
+    // Initialisation. A virtual monitor or private session starts now if needed.
+    let _attached = app.capture.attach();
     let _shared: [u8; 1] = read_n(&mut s)?;
     s.set_read_timeout(None)?;
     let frame = app
         .capture
         .store
         .latest()
-        .or_else(|| app.capture.store.wait_newer(0, Duration::from_secs(10)))
+        .or_else(|| app.capture.store.wait_newer(0, Duration::from_secs(30)))
         .context("no screen image available")?;
     let mut init = Vec::new();
     init.extend((frame.width as u16).to_be_bytes());

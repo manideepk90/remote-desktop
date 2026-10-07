@@ -84,8 +84,17 @@ pub struct Desktop {
 }
 
 impl Desktop {
-    pub fn connect() -> Result<(Arc<Desktop>, Receiver<Event>)> {
-        let conn = Connection::connect_to_env().context("cannot connect to the Wayland compositor")?;
+    /// Connects to the user's compositor, or to the Wayland socket `socket` in `$XDG_RUNTIME_DIR`.
+    pub fn connect(socket: Option<&str>) -> Result<(Arc<Desktop>, Receiver<Event>)> {
+        let conn = match socket {
+            None => Connection::connect_to_env().context("cannot connect to the Wayland compositor")?,
+            Some(name) => {
+                let dir = std::env::var_os("XDG_RUNTIME_DIR").context("XDG_RUNTIME_DIR is not set")?;
+                let stream = std::os::unix::net::UnixStream::connect(std::path::Path::new(&dir).join(name))
+                    .with_context(|| format!("cannot connect to Wayland socket {name}"))?;
+                Connection::from_socket(stream)?
+            }
+        };
         let mut queue = conn.new_event_queue();
         let qh = queue.handle();
         let (tx, rx) = mpsc::channel();

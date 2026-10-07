@@ -42,16 +42,29 @@ pub struct Networks {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct Display {
-    /// Share the existing monitors, or a virtual monitor created just for remote use.
+    /// Share the existing monitors, a virtual monitor or a private session.
     pub mode: DisplayMode,
     /// Monitor name such as "DP-4", or empty for all monitors.
     pub source: String,
     /// 1.0 = native resolution; 0.5 = half width and height.
     pub scale: f64,
     pub max_fps: u32,
-    /// Logical size of the virtual monitor.
+    /// Logical size of the virtual monitor or the private session.
     pub virtual_width: u32,
     pub virtual_height: u32,
+    /// What happens to the virtual monitor or private session after the last device leaves.
+    pub keep_after_disconnect: KeepMode,
+    /// How long `KeepMode::Grace` keeps it.
+    pub keep_secs: u64,
+}
+
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum KeepMode {
+    Stop,
+    #[default]
+    Grace,
+    Always,
 }
 
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq)]
@@ -59,7 +72,10 @@ pub struct Display {
 pub enum DisplayMode {
     #[default]
     Monitors,
+    /// An extra monitor on the user's desktop that only remote devices see.
     Virtual,
+    /// A separate headless desktop with its own pointer and keyboard.
+    Session,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -103,6 +119,8 @@ impl Default for Display {
             max_fps: 30,
             virtual_width: 1920,
             virtual_height: 1080,
+            keep_after_disconnect: KeepMode::Grace,
+            keep_secs: 600,
         }
     }
 }
@@ -114,6 +132,7 @@ impl Config {
         self.display.max_fps = self.display.max_fps.clamp(1, 120);
         self.display.virtual_width = self.display.virtual_width.clamp(640, 7680);
         self.display.virtual_height = self.display.virtual_height.clamp(480, 4320);
+        self.display.keep_secs = self.display.keep_secs.clamp(10, 86_400);
         if self.port == 0 {
             self.port = 5900;
         }

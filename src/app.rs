@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 use anyhow::Result;
 
 use crate::capture::{self, Capture};
-use crate::config::{self, Config, DisplayMode, TrustedDevice, now};
+use crate::config::{self, Config, DisplayMode, KeepMode, TrustedDevice, now};
 use crate::pairing::{self, Device, Network, Pairing};
 use crate::sessions::Sessions;
 
@@ -26,12 +26,18 @@ pub struct App {
 }
 
 pub fn capture_settings(cfg: &Config) -> capture::Settings {
+    let size = (cfg.display.virtual_width as i32, cfg.display.virtual_height as i32);
     capture::Settings {
         source: Some(cfg.display.source.clone()).filter(|s| !s.is_empty()),
         scale: cfg.display.scale,
         max_fps: cfg.display.max_fps,
-        virtual_size: (cfg.display.mode == DisplayMode::Virtual)
-            .then_some((cfg.display.virtual_width as i32, cfg.display.virtual_height as i32)),
+        virtual_size: (cfg.display.mode == DisplayMode::Virtual).then_some(size),
+        session_size: (cfg.display.mode == DisplayMode::Session).then_some(size),
+        keep: match cfg.display.keep_after_disconnect {
+            KeepMode::Stop => capture::Keep::Stop,
+            KeepMode::Grace => capture::Keep::For(Duration::from_secs(cfg.display.keep_secs)),
+            KeepMode::Always => capture::Keep::Always,
+        },
     }
 }
 

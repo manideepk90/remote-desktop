@@ -8,6 +8,7 @@ mod keymap;
 mod pairing;
 mod proto;
 mod rfb;
+mod session;
 mod sessions;
 mod ui;
 
@@ -139,6 +140,7 @@ pub fn validate_password(pw: &str) -> Result<()> {
 fn snapshot(out: &str) -> Result<()> {
     let cfg = config::load()?;
     let cap = capture::Capture::start(app::capture_settings(&cfg));
+    let _attached = cap.attach();
     let frame = cap
         .store
         .wait_newer(0, Duration::from_secs(10))
