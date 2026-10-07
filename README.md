@@ -2,6 +2,8 @@
 
 A VNC server for **KDE Plasma on Wayland**, written from scratch in Rust. Connect to your desktop from any VNC app (RealVNC Viewer, TigerVNC, Remmina, bVNC, Screens, …) and approve new devices from a desktop notification.
 
+https://github.com/user-attachments/assets/a42deb5c-6087-4afc-9107-37c50abc141c
+
 ## Features
 
 - **View and control:** full keyboard and mouse, with view-only available globally or per session.
