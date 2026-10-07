@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 use anyhow::Result;
 
 use crate::capture::{self, Capture};
-use crate::config::{self, Config, TrustedDevice, now};
+use crate::config::{self, Config, DisplayMode, TrustedDevice, now};
 use crate::pairing::{self, Device, Network, Pairing};
 use crate::sessions::Sessions;
 
@@ -30,6 +30,8 @@ pub fn capture_settings(cfg: &Config) -> capture::Settings {
         source: Some(cfg.display.source.clone()).filter(|s| !s.is_empty()),
         scale: cfg.display.scale,
         max_fps: cfg.display.max_fps,
+        virtual_size: (cfg.display.mode == DisplayMode::Virtual)
+            .then_some((cfg.display.virtual_width as i32, cfg.display.virtual_height as i32)),
     }
 }
 

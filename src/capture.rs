@@ -26,6 +26,8 @@ pub struct Settings {
     /// Scale applied by the compositor (1.0 = native logical size).
     pub scale: f64,
     pub max_fps: u32,
+    /// Stream a virtual monitor of this logical size instead of the real ones.
+    pub virtual_size: Option<(i32, i32)>,
 }
 
 /// What clients need to map pointer coordinates back onto the desktop.
@@ -75,7 +77,7 @@ impl Capture {
     }
 
     pub fn outputs(&self) -> Vec<Output> {
-        self.desktop().map(|d| d.outputs()).unwrap_or_default()
+        self.desktop().map(|d| real_outputs(&d)).unwrap_or_default()
     }
 
     pub fn status(&self) -> String {
@@ -111,21 +113,24 @@ impl Capture {
 
     fn stream_until_disconnect(&self, desktop: &Arc<Desktop>, events: &std::sync::mpsc::Receiver<Event>) {
         let mut retry = Duration::from_millis(250);
+        // Size for the virtual display used while no monitor is connected.
+        let mut headless_size = (1920, 1080);
         loop {
             self.restart.store(false, Ordering::SeqCst);
             let settings = self.settings.lock().unwrap().clone();
-            let outputs = desktop.outputs();
-            let Some(region) = pick_region(&outputs, settings.source.as_deref()) else {
-                self.set_status("no monitors connected");
-                match events.recv_timeout(Duration::from_secs(1)) {
-                    Ok(Event::Disconnected) | Err(RecvTimeoutError::Disconnected) => return,
-                    _ => continue,
+            let target = match (settings.virtual_size, pick_region(&real_outputs(desktop), settings.source.as_deref())) {
+                (Some((width, height)), _) => Target::Virtual { width, height },
+                (None, Some(r)) => {
+                    headless_size = (r.width, r.height);
+                    Target::Region(r)
                 }
+                (None, None) => Target::Virtual { width: headless_size.0, height: headless_size.1 },
             };
-            let stream = match desktop.stream_region(region, settings.scale) {
-                Ok(s) => s,
-                Err(_) => return,
+            let stream = match target {
+                Target::Region(r) => desktop.stream_region(r, settings.scale),
+                Target::Virtual { width, height } => desktop.stream_virtual(width, height),
             };
+            let Ok(stream) = stream else { return };
             let id = stream.id;
             let mut running: Option<PwHandle> = None;
             let deadline = Instant::now() + Duration::from_secs(5);
@@ -138,13 +143,18 @@ impl Capture {
                 }
                 match events.recv_timeout(Duration::from_millis(200)) {
                     Ok(Event::StreamReady { id: i, node }) if i == id => {
-                        *self.geometry.lock().unwrap() = Some(Geometry { region });
+                        *self.geometry.lock().unwrap() = Some(Geometry { region: target.region(desktop) });
                         match start_pipewire(node, id, self.store.clone(), settings.max_fps, desktop.events()) {
                             Ok(h) => {
-                                self.set_status(format!(
-                                    "streaming {}x{} @ {}x",
-                                    region.width, region.height, settings.scale
-                                ));
+                                self.set_status(match target {
+                                    Target::Region(r) => format!("streaming {}x{} @ {}x", r.width, r.height, settings.scale),
+                                    Target::Virtual { width, height } if settings.virtual_size.is_some() => {
+                                        format!("streaming a {width}x{height} virtual monitor")
+                                    }
+                                    Target::Virtual { width, height } => {
+                                        format!("no monitors connected; streaming a {width}x{height} virtual display")
+                                    }
+                                });
                                 retry = Duration::from_millis(250);
                                 running = Some(h);
                             }
@@ -155,8 +165,17 @@ impl Capture {
                     Ok(Event::StreamClosed { id: i }) if i == id => break "stream closed".into(),
                     Ok(Event::CaptureEnded { id: i }) if i == id => break "PipeWire stream ended".into(),
                     Ok(Event::OutputsChanged) => {
-                        if pick_region(&desktop.outputs(), settings.source.as_deref()) != Some(region) {
-                            break "monitor layout changed".into();
+                        let now = pick_region(&real_outputs(desktop), settings.source.as_deref());
+                        match target {
+                            Target::Region(r) if now != Some(r) => break "monitor layout changed".into(),
+                            Target::Virtual { .. } if now.is_some() && settings.virtual_size.is_none() => {
+                                break "monitor connected".into();
+                            }
+                            // Our virtual output appeared or moved: keep pointer mapping in sync.
+                            Target::Virtual { .. } if running.is_some() => {
+                                *self.geometry.lock().unwrap() = Some(Geometry { region: target.region(desktop) });
+                            }
+                            _ => {}
                         }
                     }
                     Ok(Event::Disconnected) | Err(RecvTimeoutError::Disconnected) => {
@@ -178,6 +197,34 @@ impl Capture {
             retry = (retry * 2).min(Duration::from_secs(3));
         }
     }
+}
+
+#[derive(Clone, Copy)]
+enum Target {
+    /// A region of the real monitors.
+    Region(Rect),
+    /// A headless output we create because no monitor is connected.
+    Virtual { width: i32, height: i32 },
+}
+
+impl Target {
+    /// Where the stream sits in compositor coordinates.
+    fn region(self, desktop: &Desktop) -> Rect {
+        match self {
+            Target::Region(r) => r,
+            Target::Virtual { width, height } => desktop
+                .outputs()
+                .iter()
+                .find(|o| o.is_ours())
+                .map(Output::rect)
+                .unwrap_or(Rect { x: 0, y: 0, width, height }),
+        }
+    }
+}
+
+/// Physical monitors, without the virtual output we may have created.
+fn real_outputs(desktop: &Desktop) -> Vec<Output> {
+    desktop.outputs().into_iter().filter(|o| !o.is_ours()).collect()
 }
 
 /// The logical region to stream: one named output, or the bounding box of all of them.

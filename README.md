@@ -6,6 +6,7 @@ A VNC server for **KDE Plasma on Wayland**, written from scratch in Rust. Connec
 
 - **View and control:** full keyboard and mouse, with view-only available globally or per session.
 - **Resolution control:** share one monitor or all of them, scaled 100% / 75% / 50% / 33% on the GPU by KWin, with a frame-rate cap. Changes apply live and connected clients resize without reconnecting.
+- **Virtual monitor:** share an extra monitor that only remote devices see (720p up to 4K, or a custom size) instead of your real ones. If every monitor is unplugged, Remote Desk switches to a virtual monitor on its own so the session keeps working.
 - **Pairing:**
   - After the VNC password, an unknown device triggers a notification: **Allow once / Always allow / Deny**.
   - Trusted devices are recognised by their Tailscale node identity or LAN hardware (MAC) address, so they stay trusted when their IP changes.
@@ -40,6 +41,32 @@ cargo build --release
 ```
 
 For a system-wide install into `/usr/local`, run `sudo packaging/install-system.sh`. Each user then enables `remote-desk.service`.
+
+### Updating
+
+After pulling or changing the code, rebuild and restart the running service in one step:
+
+```sh
+packaging/update.sh            # per-user install
+packaging/update.sh --system   # system-wide install (asks for sudo)
+```
+
+Connected clients are dropped during the restart. They can reconnect right away, and within the reconnect grace period they are not asked for approval again.
+
+To do it by hand:
+
+```sh
+cargo build --release
+systemctl --user restart remote-desk.service
+journalctl --user -u remote-desk.service -f     # watch the log
+```
+
+To reinstall from scratch (settings and trusted devices are kept):
+
+```sh
+./target/release/remote-desk uninstall
+./target/release/remote-desk install --autostart
+```
 
 ### Commands
 

@@ -60,10 +60,23 @@
     <section data-panel="display" hidden>
       <div class="card">
         <h2>Screen to share</h2>
-        <p class="muted">Pick one monitor or share all of them as one wide desktop.</p>
-        <div class="monitors" id="monitors"></div>
+        <div class="segmented" id="display-mode"></div>
+        <div id="mode-monitors">
+          <p class="muted">Pick one monitor or share all of them as one wide desktop.</p>
+          <div class="monitors" id="monitors"></div>
+        </div>
+        <div id="mode-virtual" hidden>
+          <p class="muted">Creates an extra monitor that only remote devices see, like plugging in a second screen. Windows can be moved onto it, and it is removed again when you switch back.</p>
+          <div class="segmented" id="virtual-size"></div>
+          <div class="inline virtual-custom">
+            <input type="number" id="virtual-width" min="640" max="7680" step="2" aria-label="Width">
+            <span>×</span>
+            <input type="number" id="virtual-height" min="480" max="4320" step="2" aria-label="Height">
+            <button class="ghost" id="virtual-apply">Apply size</button>
+          </div>
+        </div>
       </div>
-      <div class="card">
+      <div class="card" id="resolution-card">
         <h2>Resolution</h2>
         <p class="muted">Lower resolutions use less bandwidth and feel faster on slow connections. Scaling is done by the compositor on the GPU.</p>
         <div class="segmented" id="scale"></div>

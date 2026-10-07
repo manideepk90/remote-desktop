@@ -197,9 +197,27 @@ function bbox(outs) {
   return { x: x0, y: y0, width: x1 - x0, height: y1 - y0 };
 }
 
+const VIRTUAL_SIZES = [[1280, 720], [1920, 1080], [2560, 1440], [2560, 1600], [3840, 2160]];
+
 function renderDisplay() {
   if (!state) return;
   const d = state.config.display;
+  const virtual = d.mode === "virtual";
+  segmented($("display-mode"), [[0, "Existing monitors"], [1, "Virtual monitor"]], virtual ? 1 : 0,
+    (v) => saveDisplay({ mode: v ? "virtual" : "monitors" }));
+  $("mode-monitors").hidden = virtual;
+  $("mode-virtual").hidden = !virtual;
+  $("resolution-card").hidden = virtual; // the virtual monitor is streamed at its own size
+  if (virtual) {
+    $("virtual-size").replaceChildren(...VIRTUAL_SIZES.map(([w, hgt]) =>
+      h("button", {
+        "aria-pressed": String(w === d.virtual_width && hgt === d.virtual_height),
+        onclick: () => saveDisplay({ virtual_width: w, virtual_height: hgt }),
+      }, `${w} × ${hgt}`)));
+    for (const [id, v] of [["virtual-width", d.virtual_width], ["virtual-height", d.virtual_height]]) {
+      if (document.activeElement !== $(id)) $(id).value = v;
+    }
+  }
   const outs = state.outputs;
   const selected = outs.find((o) => o.name === d.source);
   const key = JSON.stringify([outs, d.source]);
@@ -297,6 +315,8 @@ function renderStartup() {
 }
 
 // ---------- controls ----------
+$("virtual-apply").addEventListener("click", () =>
+  saveDisplay({ virtual_width: Number($("virtual-width").value), virtual_height: Number($("virtual-height").value) }));
 for (const el of document.querySelectorAll("[data-setting]")) {
   el.addEventListener("change", () => act("PUT", "settings", { [el.dataset.setting]: el.checked }, "Saved"));
 }

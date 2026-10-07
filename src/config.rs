@@ -42,11 +42,24 @@ pub struct Networks {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct Display {
+    /// Share the existing monitors, or a virtual monitor created just for remote use.
+    pub mode: DisplayMode,
     /// Monitor name such as "DP-4", or empty for all monitors.
     pub source: String,
     /// 1.0 = native resolution; 0.5 = half width and height.
     pub scale: f64,
     pub max_fps: u32,
+    /// Logical size of the virtual monitor.
+    pub virtual_width: u32,
+    pub virtual_height: u32,
+}
+
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum DisplayMode {
+    #[default]
+    Monitors,
+    Virtual,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -83,7 +96,14 @@ impl Default for Networks {
 
 impl Default for Display {
     fn default() -> Self {
-        Display { source: String::new(), scale: 1.0, max_fps: 30 }
+        Display {
+            mode: DisplayMode::Monitors,
+            source: String::new(),
+            scale: 1.0,
+            max_fps: 30,
+            virtual_width: 1920,
+            virtual_height: 1080,
+        }
     }
 }
 
@@ -92,6 +112,8 @@ impl Config {
     pub fn sanitize(&mut self) {
         self.display.scale = self.display.scale.clamp(0.25, 2.0);
         self.display.max_fps = self.display.max_fps.clamp(1, 120);
+        self.display.virtual_width = self.display.virtual_width.clamp(640, 7680);
+        self.display.virtual_height = self.display.virtual_height.clamp(480, 4320);
         if self.port == 0 {
             self.port = 5900;
         }
