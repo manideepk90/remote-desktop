@@ -21,6 +21,10 @@ https://github.com/user-attachments/assets/a42deb5c-6087-4afc-9107-37c50abc141c
 - **Start at login:** a systemd user service you can toggle from the settings page.
 - **Settings page:** a local web UI at `127.0.0.1:5980` for status, sessions, display, security, trusted devices and startup.
 
+## Viewer app
+
+[`client/`](client/) contains **Remote Desk Viewer**, a VNC viewer for Windows that works with this server and other VNC servers. It keeps saved connections, takes an IP address or host name plus an optional username, and stores passwords in Windows Credential Manager. Download it from the [Releases page](https://github.com/manideepk90/remote-desktop/releases?q=viewer). Linux and macOS builds are coming next. See [client/README.md](client/README.md) for details.
+
 ## How it works
 
 | Piece | Implementation |
